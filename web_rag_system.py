@@ -309,17 +309,35 @@ class WebRAGSystem:
         # Generate answer
         answer = self.generate_answer(question, similar_chunks)
         
-        # Prepare sources
-        sources = []
+        # Prepare sources - deduplicate by URL and combine scores
+        sources_dict = {}
         for chunk_info in similar_chunks:
             chunk = chunk_info["chunk"]
-            sources.append({
-                "title": chunk["title"],
-                "url": chunk["url"],
-                "content": chunk["content"][:200] + "...",
-                "relevance_score": chunk_info["score"],
-                "matching_keywords": chunk_info["common_keywords"]
-            })
+            url = chunk["url"]
+            
+            if url not in sources_dict:
+                sources_dict[url] = {
+                    "title": chunk["title"],
+                    "url": url,
+                    "content": chunk["content"][:200] + "...",
+                    "relevance_score": chunk_info["score"],
+                    "matching_keywords": set(chunk_info["common_keywords"])
+                }
+            else:
+                # Combine scores and keywords for duplicate URLs
+                sources_dict[url]["relevance_score"] = max(
+                    sources_dict[url]["relevance_score"], 
+                    chunk_info["score"]
+                )
+                sources_dict[url]["matching_keywords"].update(chunk_info["common_keywords"])
+        
+        # Convert back to list and sort by relevance
+        sources = list(sources_dict.values())
+        for source in sources:
+            source["matching_keywords"] = list(source["matching_keywords"])
+        
+        # Sort by relevance score (highest first)
+        sources.sort(key=lambda x: x["relevance_score"], reverse=True)
         
         return {
             "answer": answer,
