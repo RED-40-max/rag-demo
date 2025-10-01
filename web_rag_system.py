@@ -233,63 +233,236 @@ class WebRAGSystem:
         print(f"🗄️  Created vector store with {len(self.vector_store)} keywords")
     
     def extract_keywords(self, text: str) -> List[str]:
-        """Extract keywords from text"""
+        """Extract meaningful keywords from text with semantic understanding"""
         words = text.lower().split()
         
+        # Extended stop words - common words that don't add meaning
         stop_words = {
             "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", 
             "of", "with", "by", "is", "are", "was", "were", "be", "been", "have", 
             "has", "had", "do", "does", "did", "will", "would", "could", "should",
-            "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they"
+            "this", "that", "these", "those", "i", "you", "he", "she", "it", "we", "they",
+            "can", "may", "might", "must", "shall", "get", "got", "go", "goes", "going",
+            "come", "comes", "came", "see", "saw", "seen", "know", "knew", "known",
+            "think", "thought", "make", "made", "take", "took", "taken", "give", "gave",
+            "given", "say", "said", "tell", "told", "ask", "asked", "want", "wanted",
+            "need", "needed", "like", "liked", "love", "loved", "feel", "felt", "seem",
+            "seemed", "look", "looked", "find", "found", "use", "used", "work", "worked",
+            "try", "tried", "help", "helped", "turn", "turned", "start", "started",
+            "show", "showed", "hear", "heard", "play", "played", "run", "ran", "move",
+            "moved", "live", "lived", "believe", "believed", "hold", "held", "bring",
+            "brought", "happen", "happened", "write", "wrote", "written", "sit", "sat",
+            "stand", "stood", "lose", "lost", "pay", "paid", "meet", "met", "include",
+            "included", "continue", "continued", "set", "put", "end", "ended", "follow",
+            "followed", "stop", "stopped", "create", "created", "speak", "spoke", "spoken",
+            "read", "allow", "allowed", "add", "added", "spend", "spent", "grow", "grew",
+            "open", "opened", "walk", "walked", "win", "won", "offer", "offered", "remember",
+            "remembered", "love", "loved", "consider", "considered", "appear", "appeared",
+            "buy", "bought", "wait", "waited", "serve", "served", "die", "died", "send",
+            "sent", "expect", "expected", "build", "built", "stay", "stayed", "fall",
+            "fell", "cut", "reach", "reached", "kill", "killed", "remain", "remained",
+            "suggest", "suggested", "raise", "raised", "pass", "passed", "sell", "sold",
+            "require", "required", "report", "reported", "decide", "decided", "pull",
+            "pulled", "return", "returned", "explain", "explained", "hope", "hoped",
+            "develop", "developed", "carry", "carried", "break", "broke", "broken",
+            "receive", "received", "agree", "agreed", "support", "supported", "hit",
+            "hated", "produce", "produced", "eat", "ate", "eaten", "cover", "covered",
+            "catch", "caught", "draw", "drew", "drawn", "choose", "chose", "chosen",
+            "deal", "dealt", "win", "won", "question", "questions", "back", "front",
+            "left", "right", "up", "down", "out", "off", "over", "under", "again",
+            "further", "then", "once", "here", "there", "when", "where", "why", "how",
+            "all", "any", "both", "each", "few", "more", "most", "other", "some", "such",
+            "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very",
+            "just", "now", "really", "well", "also", "even", "still", "much", "way",
+            "good", "great", "new", "first", "last", "long", "little", "own", "other",
+            "old", "right", "big", "high", "different", "small", "large", "next", "early",
+            "young", "important", "few", "public", "bad", "same", "able", "free", "local",
+            "sure", "better", "best", "better", "worse", "worst", "easy", "hard", "simple",
+            "complex", "clear", "obvious", "possible", "impossible", "likely", "unlikely",
+            "certain", "uncertain", "true", "false", "real", "fake", "actual", "virtual",
+            "normal", "abnormal", "regular", "irregular", "special", "general", "specific",
+            "general", "particular", "common", "uncommon", "rare", "frequent", "occasional",
+            "constant", "temporary", "permanent", "recent", "ancient", "modern", "old",
+            "new", "fresh", "stale", "clean", "dirty", "pure", "impure", "safe", "dangerous",
+            "secure", "insecure", "stable", "unstable", "strong", "weak", "powerful",
+            "powerless", "heavy", "light", "thick", "thin", "wide", "narrow", "deep",
+            "shallow", "tall", "short", "long", "brief", "quick", "slow", "fast", "rapid",
+            "sudden", "gradual", "immediate", "delayed", "early", "late", "soon", "later",
+            "before", "after", "during", "while", "since", "until", "unless", "if", "when",
+            "where", "why", "how", "what", "who", "which", "whose", "whom", "whether"
+        }
+        
+        # Semantic keyword mapping for better understanding
+        semantic_mappings = {
+            # Food and hunger related
+            "hungry": ["food", "eat", "eating", "meal", "hunger", "hungry", "starving", "appetite"],
+            "food": ["food", "eat", "eating", "meal", "hunger", "hungry", "starving", "appetite", "cook", "cooking", "recipe", "ingredient", "taste", "flavor", "delicious", "yummy", "tasty"],
+            "sweet": ["sweet", "sugar", "dessert", "cake", "cookie", "candy", "chocolate", "sugar", "honey", "treat", "snack"],
+            "treat": ["treat", "dessert", "sweet", "snack", "indulgence", "reward", "pleasure"],
+            "eat": ["eat", "eating", "food", "meal", "consume", "devour", "taste", "bite", "chew"],
+            "cook": ["cook", "cooking", "recipe", "bake", "baking", "prepare", "kitchen", "ingredient"],
+            "recipe": ["recipe", "cook", "cooking", "bake", "baking", "ingredient", "instruction", "method"],
+            "cookie": ["cookie", "biscuit", "sweet", "dessert", "bake", "baking", "chocolate", "treat"],
+            "cake": ["cake", "dessert", "sweet", "bake", "baking", "birthday", "celebration", "treat"],
+            "cupcake": ["cupcake", "cake", "dessert", "sweet", "bake", "baking", "treat", "small"],
+            
+            # General concepts
+            "want": ["want", "desire", "wish", "need", "require", "seek", "look for", "crave"],
+            "need": ["need", "require", "necessary", "essential", "important", "must have"],
+            "like": ["like", "enjoy", "love", "prefer", "favorite", "fond of", "appreciate"],
+            "love": ["love", "adore", "enjoy", "like", "passion", "affection", "cherish"],
+            "help": ["help", "assist", "support", "aid", "guide", "advice", "suggestion"],
+            "learn": ["learn", "study", "education", "knowledge", "understand", "comprehend", "teach"],
+            "know": ["know", "understand", "comprehend", "aware", "familiar", "expert", "knowledge"],
+            "find": ["find", "discover", "locate", "search", "seek", "uncover", "reveal"],
+            "make": ["make", "create", "build", "construct", "produce", "generate", "form"],
+            "use": ["use", "utilize", "employ", "apply", "operate", "function", "work"],
+            
+            # Technology and devices
+            "computer": ["computer", "pc", "laptop", "desktop", "machine", "device", "technology"],
+            "phone": ["phone", "mobile", "cell", "smartphone", "device", "communication"],
+            "drive": ["drive", "storage", "hard drive", "ssd", "memory", "disk", "usb", "flash"],
+            "storage": ["storage", "memory", "drive", "disk", "space", "capacity", "save"],
+            
+            # Animals and nature
+            "octopus": ["octopus", "sea", "ocean", "marine", "animal", "creature", "tentacle"],
+            "animal": ["animal", "creature", "wildlife", "nature", "beast", "pet"],
+            "sea": ["sea", "ocean", "water", "marine", "aquatic", "underwater", "deep"],
+            
+            # Relationships and social
+            "kiss": ["kiss", "romance", "love", "affection", "relationship", "intimate", "passion"],
+            "relationship": ["relationship", "love", "romance", "partner", "couple", "dating"],
         }
         
         keywords = []
         for word in words:
             clean_word = word.strip(".,!?;:\"'()[]{}")
-            if len(clean_word) > 3 and clean_word not in stop_words:
+            if len(clean_word) > 2 and clean_word not in stop_words:
                 keywords.append(clean_word)
+                
+                # Add semantic mappings
+                if clean_word in semantic_mappings:
+                    keywords.extend(semantic_mappings[clean_word])
         
-        return keywords[:15]  # Top 15 keywords
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_keywords = []
+        for keyword in keywords:
+            if keyword not in seen:
+                seen.add(keyword)
+                unique_keywords.append(keyword)
+        
+        return unique_keywords[:20]  # Top 20 keywords
     
     def search_similar_chunks(self, query: str, k: int = 5) -> List[Dict]:
-        """Search for similar chunks"""
+        """Search for similar chunks with intelligent scoring"""
         query_keywords = self.extract_keywords(query)
+        
+        # Define high-value semantic categories
+        high_value_categories = {
+            "food": ["food", "eat", "eating", "meal", "hunger", "hungry", "starving", "appetite", "cook", "cooking", "recipe", "ingredient", "taste", "flavor", "delicious", "yummy", "tasty", "sweet", "dessert", "cake", "cookie", "candy", "chocolate", "treat", "snack"],
+            "technology": ["computer", "pc", "laptop", "desktop", "machine", "device", "technology", "phone", "mobile", "cell", "smartphone", "drive", "storage", "hard drive", "ssd", "memory", "disk", "usb", "flash"],
+            "animals": ["octopus", "sea", "ocean", "marine", "animal", "creature", "tentacle", "wildlife", "nature", "beast", "pet"],
+            "relationships": ["kiss", "romance", "love", "affection", "relationship", "intimate", "passion", "partner", "couple", "dating"]
+        }
         
         chunk_scores = {}
         
         for chunk in self.chunks:
             chunk_keywords = self.extract_keywords(chunk["content"])
             
-            # Calculate similarity score
+            # Calculate base similarity score
             common_keywords = set(query_keywords) & set(chunk_keywords)
-            score = len(common_keywords)
+            base_score = len(common_keywords)
             
-            if score > 0:
+            if base_score > 0:
+                # Calculate semantic bonus
+                semantic_bonus = 0
+                
+                # Check for high-value category matches
+                for category, category_keywords in high_value_categories.items():
+                    query_in_category = any(keyword in category_keywords for keyword in query_keywords)
+                    chunk_in_category = any(keyword in category_keywords for keyword in chunk_keywords)
+                    
+                    if query_in_category and chunk_in_category:
+                        semantic_bonus += 3  # High bonus for category matches
+                
+                # Bonus for exact word matches
+                exact_matches = sum(1 for word in query_keywords if word in chunk_keywords)
+                exact_bonus = exact_matches * 2
+                
+                # Bonus for title relevance
+                title_keywords = self.extract_keywords(chunk["title"])
+                title_matches = len(set(query_keywords) & set(title_keywords))
+                title_bonus = title_matches * 1.5
+                
+                # Calculate final score
+                final_score = base_score + semantic_bonus + exact_bonus + title_bonus
+                
+                # Boost score for food-related queries
+                if any(word in query.lower() for word in ["hungry", "eat", "food", "sweet", "treat", "cook", "recipe", "meal"]):
+                    if any(word in chunk_keywords for word in ["food", "eat", "eating", "meal", "hunger", "cook", "cooking", "recipe", "ingredient", "taste", "flavor", "delicious", "yummy", "tasty", "sweet", "dessert", "cake", "cookie", "candy", "chocolate", "treat", "snack"]):
+                        final_score += 5  # High boost for food relevance
+                
                 chunk_scores[chunk["chunk_id"]] = {
                     "chunk": chunk,
-                    "score": score,
-                    "common_keywords": list(common_keywords)
+                    "score": final_score,
+                    "common_keywords": list(common_keywords),
+                    "semantic_bonus": semantic_bonus,
+                    "exact_bonus": exact_bonus,
+                    "title_bonus": title_bonus
                 }
         
-        # Sort by score and return top k
+        # Sort by final score and return top k
         sorted_chunks = sorted(chunk_scores.values(), key=lambda x: x["score"], reverse=True)
         return sorted_chunks[:k]
     
     def generate_answer(self, query: str, context_chunks: List[Dict]) -> str:
-        """Generate answer based on context"""
+        """Generate intelligent answer based on context"""
         if not context_chunks:
             return "I couldn't find relevant information to answer your question based on the scraped content."
         
-        # Combine context
+        # Analyze query intent
+        query_lower = query.lower()
+        
+        # Food-related responses
+        if any(word in query_lower for word in ["hungry", "eat", "food", "sweet", "treat", "cook", "recipe", "meal"]):
+            # Find food-related chunks first
+            food_chunks = []
+            other_chunks = []
+            
+            for chunk_info in context_chunks:
+                chunk = chunk_info["chunk"]
+                chunk_keywords = self.extract_keywords(chunk["content"])
+                
+                if any(word in chunk_keywords for word in ["food", "eat", "eating", "meal", "hunger", "cook", "cooking", "recipe", "ingredient", "taste", "flavor", "delicious", "yummy", "tasty", "sweet", "dessert", "cake", "cookie", "candy", "chocolate", "treat", "snack"]):
+                    food_chunks.append(chunk_info)
+                else:
+                    other_chunks.append(chunk_info)
+            
+            # Prioritize food chunks
+            prioritized_chunks = food_chunks + other_chunks
+        else:
+            prioritized_chunks = context_chunks
+        
+        # Generate contextual answer
+        if any(word in query_lower for word in ["hungry", "eat", "food"]):
+            answer = "Here are some food-related options I found:\n\n"
+        elif any(word in query_lower for word in ["sweet", "treat", "dessert"]):
+            answer = "Here are some sweet treats I found:\n\n"
+        elif any(word in query_lower for word in ["cook", "recipe"]):
+            answer = "Here are some cooking options I found:\n\n"
+        else:
+            answer = "Based on the scraped content:\n\n"
+        
+        # Add context from top chunks
         context_parts = []
-        for chunk_info in context_chunks:
+        for chunk_info in prioritized_chunks[:3]:  # Limit to top 3 most relevant
             chunk = chunk_info["chunk"]
-            context_parts.append(f"From {chunk['title']} ({chunk['url']}):\n{chunk['content'][:300]}...")
+            context_parts.append(f"From {chunk['title']} ({chunk['url']}):\n{chunk['content'][:400]}...")
         
         context = "\n\n".join(context_parts)
-        
-        # Simple answer generation
-        answer = f"Based on the scraped content:\n\n{context}"
+        answer += context
         
         return answer
     
